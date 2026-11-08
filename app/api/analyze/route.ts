@@ -30,23 +30,37 @@ export async function POST(request: Request) {
     if (predictions.length === 0)
       return NextResponse.json({ error: "Tidak ada hero terdeteksi" });
 
-    // ✅ FIX: pakai Array.from + Set<string> + String()
+    // ✅ FIX 1: Set<string> + Array.from (atasi error unknown[])
     const detectedHeroes: string[] = Array.from(
       new Set<string>(predictions.map((p: any) => String(p.class)))
     );
 
     // 2. Analisis counter via mlbb-sdk
-    const allHeroes = await mlbbClient.mlbb.getHeroes();
+    // ✅ FIX 2: getHeroes() return CollectionResponse, bukan array
+    const allHeroes: any = await mlbbClient.mlbb.getHeroes();
+    const heroRecords: any[] =
+      allHeroes?.data?.records ??
+      allHeroes?.records ??
+      (Array.isArray(allHeroes) ? allHeroes : []);
+
     const analysisResults = [];
 
     for (const heroName of detectedHeroes) {
-      const heroData = allHeroes.find(
-        (h: any) => h.name.toLowerCase() === heroName.toLowerCase()
-      );
+      const heroRecord = heroRecords.find((r: any) => {
+        const name =
+          r?.data?.hero?.data?.name ??
+          r?.data?.name ??
+          r?.name;
+        return name?.toLowerCase() === heroName.toLowerCase();
+      });
 
-      if (heroData) {
+      const heroId =
+        heroRecord?.data?.hero_id ??
+        heroRecord?.hero_id;
+
+      if (heroId) {
         try {
-          const counters = await mlbbClient.mlbb.getHeroCounters(heroData.id, {
+          const counters = await mlbbClient.mlbb.getHeroCounters(heroId, {
             rank: "mythic",
             days: 7,
           });
