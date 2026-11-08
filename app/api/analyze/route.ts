@@ -30,9 +30,10 @@ export async function POST(request: Request) {
     if (predictions.length === 0)
       return NextResponse.json({ error: "Tidak ada hero terdeteksi" });
 
-    const detectedHeroes: string[] = [
-      ...new Set(predictions.map((p: any) => p.class)),
-    ];
+    // ✅ FIX: pakai Array.from + Set<string> + String()
+    const detectedHeroes: string[] = Array.from(
+      new Set<string>(predictions.map((p: any) => String(p.class)))
+    );
 
     // 2. Analisis counter via mlbb-sdk
     const allHeroes = await mlbbClient.mlbb.getHeroes();
