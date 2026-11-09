@@ -19,18 +19,30 @@ async function compressImage(file: File): Promise<Blob> {
 export default function Home() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Tampilkan preview
+    setPreview(URL.createObjectURL(file));
     setLoading(true);
-    const compressed = await compressImage(file);
-    const formData = new FormData();
-    formData.append("screenshot", compressed, "screenshot.jpg");
-    const res = await fetch("/api/analyze", { method: "POST", body: formData });
-    const data = await res.json();
-    setResult(data);
-    setLoading(false);
+    setResult(null);
+
+    try {
+      const compressed = await compressImage(file);
+      const formData = new FormData();
+      formData.append("screenshot", compressed, "screenshot.jpg");
+
+      const res = await fetch("/api/analyze", { method: "POST", body: formData });
+      const data = await res.json();
+      setResult(data);
+    } catch (error) {
+      setResult({ error: "Gagal menghubungi server. Coba lagi." });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -39,17 +51,37 @@ export default function Home() {
       <p className="text-gray-600 mb-6">
         Unggah screenshot draft pick, sistem akan mendeteksi hero & counter-nya.
       </p>
+      
       <input type="file" accept="image/*" onChange={handleUpload} className="mb-4" />
-      {loading && <p className="text-blue-600">Menganalisis... (maksimal 30 detik)</p>}
-      {result && (
+
+      {/* Preview Gambar */}
+      {preview && (
+        <div className="mb-6">
+          <p className="text-sm text-gray-500 mb-2">Gambar yang di-upload:</p>
+          <img src={preview} alt="Preview" className="max-w-xs border rounded" />
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && <p className="text-blue-600 font-semibold">Menganalisis... (maksimal 30 detik)</p>}
+
+      {/* Tampilkan Error jika ada */}
+      {result?.error && (
+        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded mt-4">
+          <strong>Error:</strong> {result.error}
+        </div>
+      )}
+
+      {/* Tampilkan Hasil jika sukses */}
+      {result?.heroes && result.heroes.length > 0 && (
         <div className="mt-6 space-y-4">
           <h2 className="text-xl font-semibold">
-            Hero Terdeteksi: {result.heroes?.join(", ")}
+            Hero Terdeteksi: {result.heroes.join(", ")}
           </h2>
           {result.analysis?.map((item: any, i: number) => (
             <div key={i} className="border rounded-lg p-3">
               <strong>{item.hero}</strong>
-              <pre className="text-sm mt-1 text-gray-700">
+              <pre className="text-sm mt-1 text-gray-700 overflow-auto max-h-40">
                 {JSON.stringify(item.counters, null, 2)}
               </pre>
             </div>
